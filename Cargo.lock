@@ -204,7 +204,7 @@ dependencies = [
 
 [[package]]
 name = "fluke"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "byteorder",
  "bytes",
@@ -234,7 +234,7 @@ dependencies = [
 
 [[package]]
 name = "fluke-buffet"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "bytemuck",
  "color-eyre",
@@ -278,7 +278,7 @@ dependencies = [
 
 [[package]]
 name = "fluke-h2-parse"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "byteorder",
  "enum-repr",
@@ -291,7 +291,7 @@ dependencies = [
 
 [[package]]
 name = "fluke-hpack"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "hex",
  "serde",
@@ -517,7 +517,7 @@ checksum = "df3b46402a9d5adb4c86a0cf463f42e19994e3ee891101b1841f30a545cb49a9"
 
 [[package]]
 name = "httpwg"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "bytes",
  "enumflags2",
@@ -541,7 +541,7 @@ dependencies = [
 
 [[package]]
 name = "httpwg-macros"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "httpwg",
 ]

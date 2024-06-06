@@ -9,7 +9,7 @@ publish = false
 [dependencies]
 
 [dev-dependencies]
-fluke = { version = "0.1.1", path = "../../crates/fluke" }
+fluke = { version = "0.1.2", path = "../../crates/fluke" }
 bytes = { version = "1.5.0", default-features = false }
 pretty_assertions = { version = "1.4.0", default-features = false, features = [
     "std",
