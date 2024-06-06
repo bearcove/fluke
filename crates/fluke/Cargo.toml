@@ -1,6 +1,6 @@
 [package]
 name = "fluke"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bearcove/fluke"
@@ -21,8 +21,8 @@ uring = ["fluke-buffet/uring"]
 byteorder = "1.5.0"
 eyre = { version = "0.6.12", default-features = false }
 futures-util = "0.3.30"
-fluke-buffet = { version = "0.2.0", path = "../fluke-buffet" }
-fluke-hpack = { version = "0.3.1", path = "../fluke-hpack" }
+fluke-buffet = { version = "0.2.1", path = "../fluke-buffet" }
+fluke-hpack = { version = "0.3.2", path = "../fluke-hpack" }
 http = "1.1.0"
 memchr = "2.7.1"
 nom = { version = "7.1.3", default-features = false }
@@ -35,10 +35,10 @@ smallvec = { version = "1.13.1", default-features = false, features = [
 thiserror = { version = "1.0.58", default-features = false }
 tokio = { version = "1.36.0", features = ["macros", "sync"] }
 tracing = { version = "0.1.40", default-features = false }
-fluke-h2-parse = { version = "0.1.1", path = "../fluke-h2-parse" }
+fluke-h2-parse = { version = "0.2.0", path = "../fluke-h2-parse" }
 
 [dev-dependencies]
-fluke-buffet = { version = "0.2.0", path = "../fluke-buffet" }
+fluke-buffet = { version = "0.2.1", path = "../fluke-buffet" }
 bytes = { version = "1.5.0", default-features = false }
 pretty_assertions = { version = "1.4.0", default-features = false, features = [
     "std",

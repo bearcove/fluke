@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2](https://github.com/bearcove/fluke/compare/fluke-v0.1.1...fluke-v0.1.2) - 2024-06-06
+
+### Other
+- All tests pass!
+- Change Headers to a VecDeque<(Piece, Piece)>, closes [#193](https://github.com/bearcove/fluke/pull/193)
+- okay, a few more adjustments
+- Pass more tests
+- welp, need more validation
+- Yay we're properly returning 400x
+- Ready to send back 400s
+- Start working on returning 400 from fluke
+- Make 'static part of IntoHalves
+- Fully read request body before sending a response
+- race condition in sends_multiple_window_update_frames_increasing_flow_control_window_above_max_on_stream, we can fix that
+- tests build again
+- refactor settings sending, add more helpers, etc.
+- Add 6.5.3 specs
+- Introduce SettingsError, fix error code when receiving invalid initial window size
+- WIP settings parsing
+- 6.5 tests
+- Make 6.1 tests pass
+- 6.1 tests
+- 5.1.2 tests
+- verify_stream_close might be wrong
+- Add rfc 9113 section 5.1 specs
+
 ## [0.1.1](https://github.com/bearcove/fluke/compare/fluke-v0.1.0...fluke-v0.1.1) - 2024-05-27
 
 ### Added
