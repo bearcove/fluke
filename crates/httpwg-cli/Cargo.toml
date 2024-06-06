@@ -1,0 +1,13 @@
+[package]
+name = "httpwg-cli"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+color-eyre = "0.6.3"
+eyre = "0.6.12"
+fluke-buffet = { version = "0.2.0", path = "../fluke-buffet" }
+httpwg = { version = "0.1.1", path = "../httpwg" }
+tokio = { version = "1.38.0", features = ["time"] }
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3.18" }

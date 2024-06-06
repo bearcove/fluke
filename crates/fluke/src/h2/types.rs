@@ -279,12 +279,15 @@ impl BodyOutgoing {
 /// An error that may either indicate the peer is misbehaving
 /// or just a bad request from the client.
 #[derive(Debug, thiserror::Error)]
-pub(crate) enum H2RequestOrConnectionError {
+pub(crate) enum H2ErrorLevel {
     #[error("connection error: {0}")]
-    ConnectionError(#[from] H2ConnectionError),
+    Connection(#[from] H2ConnectionError),
+
+    #[error("stream error: {0}")]
+    Stream(#[from] H2StreamError),
 
     #[error("request error: {0}")]
-    RequestError(#[from] H2RequestError),
+    Request(#[from] H2RequestError),
 }
 
 /// The client done goofed, we're returning 4xx most likely
@@ -456,21 +459,20 @@ impl H2ConnectionError {
 
 #[derive(Debug, thiserror::Error)]
 pub(crate) enum H2StreamError {
-    #[allow(dead_code)]
     #[error("received {data_length} bytes in data frames but content-length announced {content_length} bytes")]
     DataLengthDoesNotMatchContentLength {
         data_length: u64,
         content_length: u64,
     },
 
+    #[error("overflow while calculating content length")]
+    OverflowWhileCalculatingContentLength,
+
     #[error("refused stream (would exceed max concurrent streams)")]
     RefusedStream,
 
     #[error("trailers must have EndStream flag set")]
     TrailersNotEndStream,
-
-    #[error("received RST_STREAM frame")]
-    ReceivedRstStream,
 
     #[error("received PRIORITY frame with invalid size")]
     InvalidPriorityFrameSize { frame_size: u32 },
@@ -483,6 +485,12 @@ pub(crate) enum H2StreamError {
 
     #[error("received WINDOW_UPDATE that made the window size overflow")]
     WindowUpdateOverflow,
+
+    #[error("bad request: {0}")]
+    BadRequest(&'static str),
+
+    #[error("stream reset")]
+    Cancel,
 }
 
 impl H2StreamError {
@@ -491,6 +499,7 @@ impl H2StreamError {
         use KnownErrorCode as Code;
 
         match self {
+            Cancel => Code::Cancel,
             // stream closed error
             StreamClosed => Code::StreamClosed,
             // stream refused error

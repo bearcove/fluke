@@ -761,6 +761,18 @@ use __group::sends_second_headers_frame_without_end_stream as test;
 $body
 }
 
+#[test]
+fn sends_headers_frame_with_incorrect_content_length_single_data_frame() {
+use __group::sends_headers_frame_with_incorrect_content_length_single_data_frame as test;
+$body
+}
+
+#[test]
+fn sends_headers_frame_with_incorrect_content_length_multiple_data_frames() {
+use __group::sends_headers_frame_with_incorrect_content_length_multiple_data_frames as test;
+$body
+}
+
 /// A field name MUST NOT contain characters in the ranges 0x00-0x20, 0x41-0x5a,
 /// or 0x7f-0xff (all ranges inclusive). This specifically excludes all
 /// non-visible ASCII characters, ASCII SP (0x20), and uppercase characters ('A'

@@ -53,6 +53,14 @@ impl Debug for StorageMut {
 
 impl StorageMut {
     #[inline(always)]
+    fn off(&self) -> u32 {
+        match self {
+            StorageMut::Buf(b) => b.off as _,
+            StorageMut::Box(b) => b.off,
+        }
+    }
+
+    #[inline(always)]
     fn cap(&self) -> usize {
         match self {
             StorageMut::Buf(_) => BUF_SIZE as usize,
@@ -132,6 +140,9 @@ impl RollMut {
     pub fn grow(&mut self) {
         let old_cap = self.storage.cap();
         let new_cap = old_cap * 2;
+
+        tracing::trace!("growing buffer from {} to {}", old_cap, new_cap);
+
         // TODO: optimize via `MaybeUninit`?
         let b = vec![0; new_cap].into_boxed_slice();
         let mut bs = BoxStorage {
@@ -148,16 +159,22 @@ impl RollMut {
     /// Reallocates the backing storage for this buffer, copying the filled
     /// portion into it. Panics if `len() == storage_size()`, in which case
     /// reallocating won't do much good
-    pub fn realloc(&mut self) -> Result<()> {
+    ///
+    /// Also panics if we're using buf storage and the offset is zero
+    /// (which means reallocating would not free up any space)
+    pub fn compact(&mut self) -> Result<()> {
         assert!(self.len() != self.storage_size());
+        tracing::trace!("compacting");
 
         let next_storage = match &self.storage {
-            StorageMut::Buf(_) => {
+            StorageMut::Buf(bm) => {
+                assert!(bm.off != 0);
                 let mut next_b = BufMut::alloc()?;
                 next_b[..self.len()].copy_from_slice(&self[..]);
                 StorageMut::Buf(next_b)
             }
             StorageMut::Box(b) => {
+                tracing::trace!("reallocating, storage is box");
                 if self.len() > BUF_SIZE as usize {
                     // TODO: optimize via `MaybeUninit`?
                     let mut next_b = vec![0; b.cap()].into_boxed_slice();
@@ -186,13 +203,14 @@ impl RollMut {
     /// to `realloc`.
     pub fn reserve(&mut self) -> Result<()> {
         if self.len() < self.cap() {
+            tracing::trace!("reserve: len < cap, no need to reserve anything");
             return Ok(());
         }
 
-        if self.len() < self.storage_size() {
-            // we don't need to go up a buffer size
+        if self.storage.off() > 0 {
+            // let's try to compact first
             trace!(len = %self.len(), cap = %self.cap(), storage_size = %self.storage_size(), "in reserve: reallocating");
-            self.realloc()?
+            self.compact()?
         } else {
             trace!(len = %self.len(), cap = %self.cap(), storage_size = %self.storage_size(), "in reserve: growing");
             self.grow()
@@ -203,15 +221,28 @@ impl RollMut {
 
     /// Make sure we can hold "request_len"
     pub fn reserve_at_least(&mut self, requested_len: usize) -> Result<()> {
-        while self.cap() < requested_len {
-            if self.cap() < self.storage_size() {
-                // we don't need to go up a buffer size
-                self.realloc()?
-            } else {
-                self.grow()
-            }
+        if requested_len <= self.cap() {
+            tracing::trace!(%requested_len, cap = %self.cap(), "reserve_at_least: requested_len <= cap, no need to compact");
+            return Ok(());
         }
 
+        if self.storage.off() > 0 && requested_len <= (BUF_SIZE as usize - self.len()) {
+            // we can compact the filled portion!
+            self.compact()?;
+        } else {
+            // we need to allocate box storage of the right size
+            let new_storage_size =
+                std::cmp::max(self.storage_size() * 2, requested_len + self.len());
+            let mut new_b = vec![0u8; new_storage_size].into_boxed_slice();
+            // copy the filled portion
+            new_b[..self.len()].copy_from_slice(&self[..]);
+            self.storage = StorageMut::Box(BoxStorage {
+                buf: Rc::new(UnsafeCell::new(new_b)),
+                off: 0,
+            });
+        }
+
+        assert!(self.cap() >= requested_len);
         Ok(())
     }
 
@@ -271,7 +302,8 @@ impl RollMut {
         (res, read_into.buf)
     }
 
-    /// Put a slice into this buffer, fails if the slice doesn't fit in the buffer's capacity
+    /// Put a slice into this buffer, fails if the slice doesn't fit in the
+    /// buffer's capacity
     pub fn put(&mut self, s: impl AsRef<[u8]>) -> Result<()> {
         let s = s.as_ref();
 
@@ -981,7 +1013,7 @@ mod tests {
             rm.take_all();
             assert_eq!(rm.cap(), init_cap - 5);
 
-            rm.realloc().unwrap();
+            rm.compact().unwrap();
             assert_eq!(rm.cap(), BUF_SIZE as usize);
         }
 
@@ -1000,7 +1032,7 @@ mod tests {
 
         let put = "x".repeat(rm.cap() * 2 / 3);
         rm.put(&put).unwrap();
-        rm.realloc().unwrap();
+        rm.compact().unwrap();
 
         assert_eq!(rm.storage_size(), BUF_SIZE as usize * 2);
         assert_eq!(rm.len(), put.len());
@@ -1335,5 +1367,17 @@ mod tests {
 
         let roll = rm.take_all();
         assert_eq!(std::str::from_utf8(&roll).unwrap(), "hello");
+    }
+
+    #[test]
+    fn test_reallocate_big() {
+        let mut rm = RollMut::alloc().unwrap();
+        rm.put(b"baba yaga").unwrap();
+        let filled = rm.filled();
+        let (_frame, rest) = filled.split_at(4);
+        rm.keep(rest);
+
+        rm.reserve_at_least(5263945).unwrap();
+        assert!(rm.cap() >= 5263945);
     }
 }

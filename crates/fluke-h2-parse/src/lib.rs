@@ -273,7 +273,7 @@ impl fmt::Debug for Frame {
             FrameType::WindowUpdate => "WindowUpdate",
             FrameType::Continuation(_) => "Continuation",
             FrameType::Unknown(EncodedFrameType { ty, flags }) => {
-                return write!(f, "UnknownFrame({:#x}, {:#x})", ty, flags)
+                return write!(f, "UnknownFrame({:#x}, {:#x}, len={})", ty, flags, self.len)
             }
         };
         let mut s = f.debug_struct(name);
@@ -376,7 +376,7 @@ impl Frame {
     }
 
     /// Returns true if this frame is an ack
-    pub fn is_ack(self) -> bool {
+    pub fn is_ack(&self) -> bool {
         match self.frame_type {
             FrameType::Settings(flags) => flags.contains(SettingsFlags::Ack),
             FrameType::Ping(flags) => flags.contains(PingFlags::Ack),
@@ -385,7 +385,7 @@ impl Frame {
     }
 
     /// Returns true if this frame has `EndHeaders` set
-    pub fn is_end_headers(self) -> bool {
+    pub fn is_end_headers(&self) -> bool {
         match self.frame_type {
             FrameType::Headers(flags) => flags.contains(HeadersFlags::EndHeaders),
             FrameType::Continuation(flags) => flags.contains(ContinuationFlags::EndHeaders),
@@ -394,7 +394,7 @@ impl Frame {
     }
 
     /// Returns true if this frame has `EndStream` set
-    pub fn is_end_stream(self) -> bool {
+    pub fn is_end_stream(&self) -> bool {
         match self.frame_type {
             FrameType::Data(flags) => flags.contains(DataFlags::EndStream),
             FrameType::Headers(flags) => flags.contains(HeadersFlags::EndStream),

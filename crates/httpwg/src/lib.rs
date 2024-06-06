@@ -238,79 +238,116 @@ impl<IO: IntoHalves> Conn<IO> {
 
         let (ev_tx, ev_rx) = tokio::sync::mpsc::channel::<Ev>(1);
         let mut eof = false;
-        let recv_fut = async move {
-            let mut res_buf = RollMut::alloc()?;
-            'read: loop {
-                if !eof {
-                    res_buf.reserve()?;
-                    let res;
-                    (res, res_buf) = res_buf.read_into(16384, &mut r).await;
-                    let n = res?;
-                    if n == 0 {
-                        debug!("reached EOF");
-                        eof = true;
-                    } else {
-                        trace!(%n, "read bytes (reading frame header)");
-                    }
-                }
 
-                if eof && res_buf.is_empty() {
-                    break 'read;
-                }
+        let recv_fut = {
+            let config = config.clone();
+            async move {
+                let mut res_buf = RollMut::alloc()?;
+                'read: loop {
+                    trace!("'read loop");
 
-                match Frame::parse(res_buf.filled()) {
-                    Ok((rest, frame)) => {
-                        res_buf.keep(rest);
-                        debug!("< {frame:?}");
+                    match Frame::parse(res_buf.filled()) {
+                        Ok((rest, frame)) => {
+                            res_buf.keep(rest);
+                            debug!("< {frame:?}");
 
-                        // read frame payload
-                        let frame_len = frame.len as usize;
-                        res_buf.reserve_at_least(frame_len)?;
+                            // read frame payload
+                            let frame_len = frame.len as usize;
+                            trace!(?frame_len, "reserving memory");
+                            res_buf.reserve_at_least(frame_len)?;
 
-                        while res_buf.len() < frame_len {
-                            let res;
-                            (res, res_buf) = res_buf.read_into(16384, &mut r).await;
-                            let n = res?;
-                            trace!(%n, len = %res_buf.len(), "read bytes (reading frame payload)");
+                            let deadline = Instant::now() + config.timeout;
+                            trace!(?frame_len, ?deadline, "reading");
 
-                            if n == 0 {
-                                eof = true;
-                                if res_buf.len() < frame_len {
+                            while res_buf.len() < frame_len {
+                                let res;
+                                (res, res_buf) = match tokio::time::timeout_at(
+                                    deadline,
+                                    res_buf.read_into(16384, &mut r),
+                                )
+                                .await
+                                {
+                                    Ok(res) => res,
+                                    Err(_) => {
+                                        debug!(?frame_len, "timed out reading frame payload");
+                                        break 'read;
+                                    }
+                                };
+                                let n = res?;
+                                trace!(%n, len = %res_buf.len(), "read bytes (reading frame payload)");
+
+                                if n == 0 {
+                                    eof = true;
+                                    if res_buf.len() < frame_len {
+                                        panic!(
+                                            "peer frame header, then incomplete payload, then hung up"
+                                        )
+                                    }
+                                }
+                            }
+
+                            let payload = if frame_len == 0 {
+                                Roll::empty()
+                            } else {
+                                res_buf.take_at_most(frame_len).unwrap()
+                            };
+                            assert_eq!(payload.len(), frame_len);
+
+                            trace!(%frame_len, "got frame payload");
+                            if ev_tx.send(Ev::Frame { frame, payload }).await.is_err() {
+                                // I guess we stopped consuming frames, sure.
+                                break 'read;
+                            }
+                        }
+                        Err(nom::Err::Incomplete(_)) => {
+                            if eof {
+                                if res_buf.is_empty() {
+                                    // all good, that's eof!
+                                    break 'read;
+                                } else {
                                     panic!(
-                                        "peer frame header, then incomplete payload, then hung up"
+                                        "peer sent incomplete frame header then hung up (buf len: {})",
+                                        res_buf.len()
                                     )
                                 }
                             }
-                        }
 
-                        let payload = if frame_len == 0 {
-                            Roll::empty()
-                        } else {
-                            res_buf.take_at_most(frame_len).unwrap()
-                        };
-                        assert_eq!(payload.len(), frame_len);
-
-                        trace!(%frame_len, "got frame payload");
-                        ev_tx.send(Ev::Frame { frame, payload }).await.unwrap();
-                    }
-                    Err(nom::Err::Incomplete(_)) => {
-                        if eof {
-                            panic!(
-                                "peer sent incomplete frame header then hung up (buf len: {})",
-                                res_buf.len()
+                            trace!("reserving");
+                            res_buf.reserve()?;
+                            let res;
+                            trace!("re-filling buffer");
+                            let deadline = Instant::now() + config.timeout;
+                            (res, res_buf) = match tokio::time::timeout_at(
+                                deadline,
+                                res_buf.read_into(16384, &mut r),
                             )
-                        }
+                            .await
+                            {
+                                Ok(res) => res,
+                                Err(_) => {
+                                    debug!("timed out reading frame header");
+                                    break 'read;
+                                }
+                            };
+                            let n = res?;
+                            if n == 0 {
+                                debug!("reached EOF");
+                                eof = true;
+                            } else {
+                                trace!(%n, "read bytes (reading frame header)");
+                            }
 
-                        continue;
-                    }
-                    Err(nom::Err::Failure(err) | nom::Err::Error(err)) => {
-                        debug!(?err, "got parse error");
-                        break;
+                            continue;
+                        }
+                        Err(nom::Err::Failure(err) | nom::Err::Error(err)) => {
+                            debug!(?err, "got parse error");
+                            break;
+                        }
                     }
                 }
-            }
 
-            Ok::<_, eyre::Report>(())
+                Ok::<_, eyre::Report>(())
+            }
         };
         fluke_buffet::spawn(async move { recv_fut.await.unwrap() });
 
@@ -927,6 +964,23 @@ impl<IO: IntoHalves> Conn<IO> {
             .parse::<u16>()
             .expect("status should be a u16");
         assert_eq!(status, expected_status);
+
+        Ok(())
+    }
+
+    async fn send_req_and_expect_stream_rst(
+        &mut self,
+        stream_id: StreamId,
+        headers: &Headers,
+    ) -> eyre::Result<()> {
+        self.encode_and_write_headers(
+            stream_id,
+            HeadersFlags::EndHeaders | HeadersFlags::EndStream,
+            headers,
+        )
+        .await?;
+
+        self.verify_stream_error(ErrorC::ProtocolError).await?;
 
         Ok(())
     }
