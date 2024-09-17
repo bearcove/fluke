@@ -738,7 +738,7 @@ dependencies = [
 
 [[package]]
 name = "httpwg-cli"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "buffet",
  "color-eyre",
@@ -809,7 +809,7 @@ dependencies = [
 
 [[package]]
 name = "httpwg-macros"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "httpwg",
 ]
@@ -1014,7 +1014,7 @@ checksum = "a7a70ba024b9dc04c27ea2f0c0548feb474ec5c54bba33a7f72f873a39d07b24"
 
 [[package]]
 name = "loona"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "b-x",
  "buffet",

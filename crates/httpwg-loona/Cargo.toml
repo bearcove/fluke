@@ -10,7 +10,7 @@ A reference HTTP 1+2 server for httpwg, powered by loona
 
 [dependencies]
 color-eyre = "0.6.3"
-loona = { version = "0.3.1", path = "../loona" }
+loona = { version = "0.3.2", path = "../loona" }
 buffet = { version = "0.3.1", path = "../buffet" }
 tracing = { version = "0.1.40" }
 tracing-subscriber = "0.3.18"
