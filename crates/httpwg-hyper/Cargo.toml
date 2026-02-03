@@ -9,7 +9,7 @@ A reference HTTP 1+2 server for httpwg, powered by hyper
 """
 
 [dependencies]
-bytes = "1.7.1"
+bytes = "1.11.1"
 futures = "0.3.30"
 http-body-util = "0.1.2"
 httpwg-harness = { version = "0.1.0", path = "../httpwg-harness" }
