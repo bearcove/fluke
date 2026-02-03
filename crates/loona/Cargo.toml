@@ -44,7 +44,7 @@ b-x = { version = "1.0.3", path = "../b-x" }
 
 [dev-dependencies]
 buffet = { version = "0.3.3", path = "../buffet" }
-bytes = { version = "1.7.1", default-features = false }
+bytes = { version = "1.11.1", default-features = false }
 pretty_assertions = { version = "1.4.0", default-features = false, features = [
     "std",
 ] }
